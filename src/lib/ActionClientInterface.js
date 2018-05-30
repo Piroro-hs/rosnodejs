@@ -43,7 +43,7 @@ class ActionClientInterface extends EventEmitter {
 
     const goalOptions = Object.assign({ queueSize: 10, latching: false }, options.goal);
     this._goalPub = nh.advertise(this._actionServer + '/goal',
-                                 this._actionType + 'Goal',
+                                 this._actionType + 'ActionGoal',
                                  goalOptions);
 
     const cancelOptions = Object.assign({ queueSize: 10, latching: false }, options.cancel);
@@ -59,17 +59,21 @@ class ActionClientInterface extends EventEmitter {
 
     const feedbackOptions = Object.assign({ queueSize: 1 }, options.feedback);
     this._feedbackSub = nh.subscribe(this._actionServer + '/feedback',
-                                     this._actionType + 'Feedback',
+                                     this._actionType + 'ActionFeedback',
                                      (msg) => { this._handleFeedback(msg); },
                                      feedbackOptions);
 
     const resultOptions = Object.assign({ queueSize: 1 }, options.result);
     this._resultSub = nh.subscribe(this._actionServer + '/result',
-                                   this._actionType + 'Result',
+                                   this._actionType + 'ActionResult',
                                    (msg) => { this._handleResult(msg); },
                                    resultOptions);
 
     this._hasStatus = false;
+  }
+
+  getType() {
+    return this._actionType;
   }
 
   /**
@@ -103,6 +107,10 @@ class ActionClientInterface extends EventEmitter {
       return true;
     }
     else {
+      if (typeof timeoutMs  !== 'number') {
+        timeoutMs = 0;
+      }
+
       return this._waitForActionServerToStart(timeoutMs, Date.now());
     }
   }
@@ -113,7 +121,7 @@ class ActionClientInterface extends EventEmitter {
       if (this.isServerConnected()) {
         return true;
       }
-      else if (start + timeoutMs > Date.now()) {
+      else if (timeoutMs > 0 && start + timeoutMs > Date.now()) {
         return false;
       }
       else {
@@ -123,7 +131,7 @@ class ActionClientInterface extends EventEmitter {
   }
 
   isServerConnected() {
-    return this._hasStatus() &&
+    return this._hasStatus &&
       this._goalPub.getNumSubscribers() > 0 &&
       this._cancelPub.getNumSubscribers() > 0 &&
       this._statusSub.getNumPublishers() > 0 &&
